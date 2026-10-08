@@ -1,0 +1,7 @@
+typer[all]
+rich
+sqlparse
+networkx
+Faker
+fastapi
+uvicorn

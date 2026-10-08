@@ -1,0 +1,2 @@
+[console_scripts]
+relsyn = relational_synth.cli:app

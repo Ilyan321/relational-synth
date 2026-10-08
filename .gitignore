@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+env/
+venv/
+seed.sql
+fuzz_tests.sql
+relational_synth/examples/seed.sql
+relational_synth/examples/fuzz_test.sql
+.DS_Store

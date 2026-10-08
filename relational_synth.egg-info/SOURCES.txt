@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+relational_synth/__init__.py
+relational_synth/cli.py
+relational_synth.egg-info/PKG-INFO
+relational_synth.egg-info/SOURCES.txt
+relational_synth.egg-info/dependency_links.txt
+relational_synth.egg-info/entry_points.txt
+relational_synth.egg-info/requires.txt
+relational_synth.egg-info/top_level.txt
+relational_synth/engine/__init__.py
+relational_synth/fuzzer/__init__.py
+relational_synth/parser/__init__.py
+relational_synth/parser/ddl_parser.py
+relational_synth/parser/schema_model.py
+relational_synth/web/__init__.py
+tests/test_parser.py

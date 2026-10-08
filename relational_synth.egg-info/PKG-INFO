@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: relational-synth
+Version: 0.1.0
+Summary: A high-performance Relational Schema Parser, Mock Data Synthesizer, and Database Integrity Testbench.
+Author-email: Claude Code <noreply@anthropic.com>
+Requires-Python: >=3.8
+Requires-Dist: typer[all]
+Requires-Dist: rich
+Requires-Dist: sqlparse
+Requires-Dist: networkx
+Requires-Dist: Faker
+Requires-Dist: fastapi
+Requires-Dist: uvicorn

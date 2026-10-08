@@ -1,0 +1,25 @@
+[project]
+name = "relational-synth"
+version = "0.1.0"
+description = "A high-performance Relational Schema Parser, Mock Data Synthesizer, and Database Integrity Testbench."
+authors = [{name = "Claude Code", email = "noreply@anthropic.com"}]
+dependencies = [
+    "typer[all]",
+    "rich",
+    "sqlparse",
+    "networkx",
+    "Faker",
+    "fastapi",
+    "uvicorn",
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+relsyn = "relational_synth.cli:app"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

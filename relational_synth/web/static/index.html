@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RelationalSynth Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .table-node { fill: #fff; stroke: #3b82f6; stroke-width: 2; }
+        .pk-icon { fill: #f59e0b; }
+        .fk-line { stroke: #94a3b8; stroke-width: 1.5; marker-end: url(#arrowhead); }
+        .canvas-container { background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
+    <header class="bg-blue-600 text-white p-4 shadow-lg flex justify-between items-center">
+        <h1 class="text-xl font-bold flex items-center">
+            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+            RelationalSynth
+        </h1>
+        <div class="flex space-x-4">
+            <button onclick="document.getElementById('ddlInput').click()" class="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded text-sm font-medium transition">Upload DDL</button>
+            <input type="file" id="ddlInput" class="hidden" accept=".sql" onchange="handleFileUpload(event)">
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-80 bg-white border-r border-gray-200 overflow-y-auto p-4 hidden md:block">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Tables</h2>
+            <ul id="tableList" class="space-y-2">
+                <li class="text-gray-400 italic">No schema loaded...</li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <section class="flex-1 flex flex-col relative">
+            <div id="er-diagram" class="flex-1 canvas-container overflow-hidden relative">
+                <svg id="svg-canvas" class="w-full h-full">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                        </marker>
+                    </defs>
+                    <!-- Elements will be injected here -->
+                </svg>
+            </div>
+
+            <!-- Bottom Preview / Controls -->
+            <div class="h-64 bg-white border-t border-gray-200 p-4 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-gray-700">Data Generation</h3>
+                    <div class="flex space-x-2 items-center">
+                        <span class="text-sm text-gray-600">Count:</span>
+                        <input type="number" id="genCount" value="1000" class="border rounded px-2 py-1 w-20 text-sm">
+                        <button onclick="generateData()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded text-sm font-medium">Generate & Download SQL</button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-auto border rounded bg-gray-50 p-2">
+                    <pre id="output-preview" class="text-xs text-gray-600">Output preview will appear here...</pre>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let schema = null;
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const content = e.target.result;
+                await parseDDL(content);
+            };
+            reader.readAsText(file);
+        }
+
+        async function parseDDL(content) {
+            try {
+                const res = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    schema = data.tables;
+                    renderUI();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderUI() {
+            renderSidebar();
+            renderER();
+        }
+
+        function renderSidebar() {
+            const list = document.getElementById('tableList');
+            list.innerHTML = '';
+            schema.forEach(table => {
+                const li = document.createElement('li');
+                li.className = 'p-2 bg-gray-50 rounded border hover:border-blue-300 transition cursor-pointer';
+                li.innerHTML = `
+                    <div class="font-medium text-sm text-blue-700">${table.name}</div>
+                    <div class="text-xs text-gray-500">${table.columns.length} columns</div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function renderER() {
+            const svg = document.getElementById('svg-canvas');
+            // Basic automatic layout - circular
+            const width = svg.clientWidth;
+            const height = svg.clientHeight;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(width, height) * 0.35;
+
+            // Clear previous elements except defs
+            while (svg.lastChild && svg.lastChild.nodeName !== 'defs') {
+                svg.removeChild(svg.lastChild);
+            }
+
+            const tablePositions = {};
+
+            schema.forEach((table, i) => {
+                const angle = (i / schema.length) * 2 * Math.PI;
+                const x = centerX + radius * Math.cos(angle) - 60;
+                const y = centerY + radius * Math.sin(angle) - 40;
+                tablePositions[table.name] = {x: x + 60, y: y + 40};
+
+                // Draw Table Card
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', y);
+                rect.setAttribute('width', 120);
+                rect.setAttribute('height', 80);
+                rect.setAttribute('rx', 8);
+                rect.className.baseVal = 'table-node shadow-sm';
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x + 60);
+                text.setAttribute('y', y + 20);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '12px');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = table.name;
+
+                group.appendChild(rect);
+                group.appendChild(text);
+
+                // Mini columns representation
+                table.columns.slice(0, 3).forEach((col, j) => {
+                    const colText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    colText.setAttribute('x', x + 10);
+                    colText.setAttribute('y', y + 40 + (j * 12));
+                    colText.setAttribute('font-size', '9px');
+                    colText.setAttribute('fill', col.pk ? '#f59e0b' : '#6b7280');
+                    colText.textContent = (col.pk ? '🔑 ' : '') + col.name;
+                    group.appendChild(colText);
+                });
+
+                svg.appendChild(group);
+            });
+
+            // Draw Relationships
+            schema.forEach(table => {
+                table.foreign_keys.forEach(fk => {
+                    const from = tablePositions[table.name];
+                    const to = tablePositions[fk.ref_table];
+                    if (from && to) {
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', from.x);
+                        line.setAttribute('y1', from.y);
+                        line.setAttribute('x2', to.x);
+                        line.setAttribute('y2', to.y);
+                        line.className.baseVal = 'fk-line';
+                        svg.insertBefore(line, svg.firstChild);
+                    }
+                });
+            });
+        }
+
+        async function generateData() {
+            const count = document.getElementById('genCount').value;
+            const preview = document.getElementById('output-preview');
+            preview.textContent = "Generating...";
+
+            try {
+                const res = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({count: parseInt(count), format: 'sql'})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    preview.textContent = data.content.substring(0, 2000) + "\n\n... (truncated)";
+
+                    // Trigger download
+                    const blob = new Blob([data.content], {type: 'text/sql'});
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'seed.sql';
+                    a.click();
+                } else {
+                    alert('Generation error: ' + data.message);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Handle window resize for ER diagram
+        window.addEventListener('resize', () => { if (schema) renderER(); });
+
+        // Initial state
+        window.onload = async () => {
+            // Check if schema is pre-loaded by the server
+            // (Simple way for this MVP: try to get it from an API)
+            try {
+                const res = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: ""}) // empty content might trigger getting existing
+                });
+                const data = await res.json();
+                if (data.status === 'success' && data.tables.length > 0) {
+                    schema = data.tables;
+                    renderUI();
+                }
+            } catch(e) {}
+        };
+    </script>
+</body>
+</html>
